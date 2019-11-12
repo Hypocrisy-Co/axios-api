@@ -1,6 +1,5 @@
-// api核心处理
-import axios from 'axios';
-import baseURL from '@/envconfig/envconfig';
+import axios from 'axios'
+import baseURL from '@/envconfig/envconfig'
 
 const codeMessage = {
   200: '服务器成功返回请求的数据。',
@@ -18,7 +17,7 @@ const codeMessage = {
   502: '网关错误。',
   503: '服务不可用，服务器暂时过载或维护。',
   504: '网关超时。',
-};
+}
 
 /**
  * 主要params参数
@@ -35,55 +34,36 @@ const codeMessage = {
  * 注意：params中的数据会覆盖method url 参数，所以如果指定了这2个参数则不需要在params中带入
 */
 const checkStatus = response => {
-  if (response.status >= 200 && response.status < 300) {
-    return response;
+  if (response.status < 200 && response.status >= 300) {
+    const errortext = codeMessage[response.status] || response.statusText
+    const error = new Error(errortext)
+    error.name = response.status
+    error.response = response
+    throw error
   }
-  const errortext = codeMessage[response.status] || response.statusText;
+}
 
-  const error = new Error(errortext);
-  error.name = response.status;
-  error.response = response;
-  throw error;
-};
+export default function request(url, newOptions) {
+  const options = Object.assign(
+    {
+      url,
+      baseURL,
+      timeout: 10000,
+      needCode: false,
+      withCredentials: true, // 是否携带cookies发起请求
+      validateStatus: status => status >= 200 && status < 300,
+    }, newOptions)
 
-
-export default class Server {
-  request(method, url, data, newOptions = {}){
-    return new Promise((resolve, reject) => {
-      if(!!data){
-        method === 'get'
-        ? newOptions.params = data
-        : newOptions.data = data
+  return new Promise((resolve, reject) => {
+    axios.request(options).then(res => {
+      try {
+        checkStatus(res)
+        resolve(options.needCode ? res.data : res.data.data)
+      } catch (err) {
+        reject(err)
       }
-      let _options = Object.assign({
-          method,
-          url,
-          baseURL: baseURL,
-          timeout: 3000,
-          needCode: false,
-          // withCredentials: true, //是否携带cookies发起请求
-          validateStatus:(status)=>{
-              return status >= 200 && status < 300;
-          },
-      }, newOptions)
-
-      axios.request(_options).then(res => {
-        try {
-          checkStatus(res)
-          let _data = typeof res.data === 'object' ? res.data : JSON.parse(res.data)
-          _data = _options.needCode ? _data : _data.data
-          resolve(_data)
-        } catch (err) {
-          reject(err)
-        }
-
-      },error => {
-        if(error.response){
-            reject(error.response.data)
-        }else{
-            reject(error)
-        }
-      })
+    }, error => {
+      reject(error.response ? error.response.data : error)
     })
-  }
+  })
 }

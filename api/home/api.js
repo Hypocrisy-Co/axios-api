@@ -1,8 +1,11 @@
-import Server from './api/server';
-class API extends Server{
-  async get(data){
-    return await this.request('get', '/home/get', data);
-  }
-}
+import request from '../server'
 
-export default new API();
+const getList = data =>
+  request('/home/getList', {
+    method: 'get',
+    params: data,
+  })
+
+export default {
+  getList
+}
